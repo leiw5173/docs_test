@@ -17,8 +17,10 @@ software_version: "test-1.0"
 
 ## 检查结果
 
-当前测试标记：**MERGE-V3**。
+当前测试标记：**MERGE-V3-BROKEN**。
 
 业务 PR 更新测试时，将上述标记替换为第二轮标记。
 
 [返回指南目录](index.md)
+
+[故意缺失的测试页面](missing-for-test.md)
