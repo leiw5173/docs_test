@@ -17,7 +17,7 @@ software_version: "test-1.0"
 
 ## 检查结果
 
-当前测试标记：**MERGE-V3-FIXED**。
+当前测试标记：**ONE-PR-BUSINESS-V2**。
 
 业务 PR 更新测试时，将上述标记替换为第二轮标记。
 
