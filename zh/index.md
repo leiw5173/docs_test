@@ -6,4 +6,4 @@ sidebar_position: 1
 
 本目录仅用于维护流程验收，不对应真实产品资料。
 
-- [测试指南](guide/index.md)
+- [测试指南](maintenance-guide/index.md)
