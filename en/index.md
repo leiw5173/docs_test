@@ -6,4 +6,4 @@ sidebar_position: 1
 
 These documents are test data for the documentation maintenance workflow.
 
-- [Test guide](guide/index.md)
+- [Test guide](maintenance-guide/index.md)
