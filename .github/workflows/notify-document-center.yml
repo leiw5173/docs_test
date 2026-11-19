@@ -1,0 +1,62 @@
+name: Notify document center
+on:
+  pull_request_target:
+    branches: [main]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: 已合并的业务 PR 编号
+        type: string
+        required: true
+permissions:
+  pull-requests: read
+jobs:
+  notify:
+    if: >-
+      (github.event_name == 'pull_request_target' && github.event.pull_request.merged) ||
+      (github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # Read the merged PR via GitHub API. Do not checkout or execute code from its head.
+      - name: Notify the governance workflow
+        env:
+          SOURCE_TOKEN: ${{ github.token }}
+          DISPATCH_TOKEN: ${{ secrets.DOCUMENT_CENTER_DISPATCH_TOKEN }}
+          SOURCE_PR: ${{ github.event.pull_request.number || inputs.pull_request }}
+        run: |
+          node --input-type=module <<'JS'
+          const {DISPATCH_TOKEN, SOURCE_PR, SOURCE_TOKEN, GITHUB_REPOSITORY, GITHUB_EVENT_NAME} = process.env;
+          if (!DISPATCH_TOKEN) {
+            if (GITHUB_EVENT_NAME === 'workflow_dispatch') throw Error('DOCUMENT_CENTER_DISPATCH_TOKEN is missing');
+            console.log('Direct notification credential missing. Governance recovery will check the merge.');
+            process.exit(0);
+          }
+          if (!/^[1-9][0-9]*$/.test(SOURCE_PR || '') || GITHUB_REPOSITORY !== 'leiw5173/docs_test') {
+            throw Error('Unexpected source repository or pull request number');
+          }
+          const headers = token => ({
+            Authorization: 'Bearer ' + token,
+            Accept: 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28'
+          });
+          const response = await fetch('https://api.github.com/repos/' + GITHUB_REPOSITORY + '/pulls/' + SOURCE_PR, {
+            headers: headers(SOURCE_TOKEN), redirect: 'error', signal: AbortSignal.timeout(15000)
+          });
+          if (!response.ok) throw Error('Cannot verify business PR (HTTP ' + response.status + ')');
+          const pr = await response.json();
+          if (!pr.merged || !pr.merged_at || pr.number !== Number(SOURCE_PR) || pr.base.ref !== 'main' ||
+              pr.base.repo.full_name !== GITHUB_REPOSITORY || !/^[a-f0-9]{40}$/.test(pr.merge_commit_sha || '')) {
+            throw Error('This PR did not merge the registered branch');
+          }
+          const dispatch = await fetch('https://api.github.com/repos/leiw5173/docs_center/actions/workflows/document-source-reconcile.yml/dispatches', {
+            method: 'POST', redirect: 'error', headers: headers(DISPATCH_TOKEN), signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({ref:'main',inputs:{
+              source_id:'maintenance-test',source_commit:pr.merge_commit_sha,source_pr:SOURCE_PR
+            }})
+          });
+          if (!dispatch.ok) throw Error('Governance notification failed (HTTP ' + dispatch.status + ')');
+          console.log('Governance workflow notified for business PR #' + SOURCE_PR);
+          JS
